@@ -2,13 +2,8 @@ import streamlit as st
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 import numpy as np
-import math
 
-# Fungsi untuk mengubah gambar ke skala abu-abu (grayscale)
-def convert_to_grayscale(image):
-    grayscale_image = image.convert('L')
-    return grayscale_image
-
+##### Image Enhancement #####
 # Fungsi untuk meningkatkan intensitas gambar
 def enhance_intensity(image, intensity_factor):
     width, height = image.size
@@ -22,6 +17,7 @@ def enhance_intensity(image, intensity_factor):
 
     return enhanced_image
 
+##### Image Inverted #####
 # Fungsi untuk membuat inverted image
 def invert_image(image):
     width, height = image.size
@@ -35,25 +31,101 @@ def invert_image(image):
 
     return inverted_image
 
-# Fungsi untuk rotasi gambar
-def rotate_image(image, angle):
+##### Image Rotation #####
+# Fungsi untuk rotasi gambar 90 derajat searah jarum jam
+def rotate_image_90_clockwise(input_image):
+    try:
+        if input_image is not None:
+            # Buka gambar menggunakan Pillow
+            image = Image.open(input_image)
+
+            # Konversi gambar menjadi array NumPy
+            img_array = np.array(image)
+
+            # Mendapatkan lebar dan tinggi gambar
+            height, width, channels = img_array.shape
+
+            # Buat array kosong untuk menyimpan hasil rotasi
+            rotated_array = np.zeros((width, height, channels), dtype=np.uint8)
+
+            # Lakukan rotasi sebesar 90 derajat searah jarum jam
+            for x in range(width):
+                for y in range(height):
+                    rotated_array[x, y] = img_array[height - 1 - y, x]
+
+            # Konversi array kembali menjadi gambar menggunakan Pillow
+            rotated_image = Image.fromarray(rotated_array)
+
+            return rotated_image
+        else:
+            return None
+
+    except Exception as e:
+        st.error(f'Error in rotate_image_90_clockwise: {str(e)}')
+        return None
+
+# Fungsi untuk rotasi gambar 180 derajat searah jarum jam
+def rotate_image_180_clockwise(input_image):
+    try:
+        # Buka gambar menggunakan Pillow
+        image = Image.open(input_image)
+
+        # Konversi gambar menjadi array NumPy
+        img_array = np.array(image)
+
+        # Mendapatkan lebar dan tinggi gambar
+        height, width, channels = img_array.shape
+
+        # Buat array kosong untuk menyimpan hasil rotasi
+        rotated_array = np.zeros_like(img_array, dtype=np.uint8)
+
+        # Lakukan rotasi 180 derajat searah jarum jam
+        for x in range(width):
+            for y in range(height):
+                rotated_array[height - 1 - y, width - 1 - x] = img_array[y, x]
+
+        # Konversi array kembali menjadi gambar menggunakan Pillow
+        rotated_image = Image.fromarray(rotated_array)
+
+        return rotated_image
+
+    except Exception as e:
+        st.error(f'Error in rotate_image_180_clockwise: {str(e)}')
+        return None
+    
+# Fungsi untuk rotasi gambar sesuai sudut yang ditentukan
+def rotate_image_custom(input_image, angle_degrees):
+    # Buka gambar menggunakan Pillow
+    image = Image.open(input_image)
+
+    # Konversi sudut rotasi dari derajat ke radian
+    angle_radians = np.radians(angle_degrees)
+
+    # Mendapatkan lebar dan tinggi gambar
     width, height = image.size
-    rotated_image = Image.new('RGB', (width, height))
-    draw = ImageDraw.Draw(rotated_image)
-    cx, cy = width / 2, height / 2
-    radians = math.radians(angle)
 
-    for x in range(width):
-        for y in range(height):
-            # Hitung koordinat piksel baru setelah rotasi
-            x_new = (x - cx) * math.cos(radians) - (y - cy) * math.sin(radians) + cx
-            y_new = (x - cx) * math.sin(radians) + (y - cy) * math.cos(radians) + cy
+    # Menghitung dimensi baru setelah rotasi
+    w_prime = int(abs(width * np.cos(angle_radians)) + abs(height * np.sin(angle_radians)))
+    h_prime = int(abs(width * np.sin(angle_radians)) + abs(height * np.cos(angle_radians)))
 
-            # Ambil warna piksel asli
-            original_color = image.getpixel((x, y))
+    # Buat gambar baru untuk menyimpan hasil rotasi
+    rotated_image = Image.new("RGB", (w_prime, h_prime))
 
-            # Set warna piksel pada gambar hasil rotasi
-            draw.point((x_new, y_new), fill=original_color)
+    # Menghitung koordinat pusat untuk rotasi
+    center_x = width / 2
+    center_y = height / 2
+
+    # Lakukan rotasi sesuai sudut yang ditentukan
+    for x_prime in range(w_prime):
+        for y_prime in range(h_prime):
+            # Menghitung koordinat sebelum rotasi
+            x = int((x_prime - w_prime / 2) * np.cos(-angle_radians) - (y_prime - h_prime / 2) * np.sin(-angle_radians) + center_x)
+            y = int((x_prime - w_prime / 2) * np.sin(-angle_radians) + (y_prime - h_prime / 2) * np.cos(-angle_radians) + center_y)
+
+            # Pastikan koordinat dalam batas gambar asli
+            if 0 <= x < width and 0 <= y < height:
+                pixel = image.getpixel((x, y))
+                rotated_image.putpixel((x_prime, y_prime), pixel)
 
     return rotated_image
 
@@ -74,7 +146,7 @@ def plot_histogram(image, title):
     return fig
 
 # Judul aplikasi
-st.title('Image Enhancement, invert and rotation')
+st.title('Image Enhancement, Invert, and Rotation')
 
 # Upload gambar
 uploaded_image = st.file_uploader('Unggah gambar:', type=['jpg', 'png', 'jpeg'])
@@ -82,16 +154,28 @@ uploaded_image = st.file_uploader('Unggah gambar:', type=['jpg', 'png', 'jpeg'])
 # Tambahkan slider untuk mengatur faktor intensitas
 intensity_factor = st.slider('Faktor Intensitas:', min_value=1, max_value=100, value=2)
 
-# Kolom untuk tampilan gambar asli, gambar yang telah ditingkatkan, gambar grayscale, dan inverted image
+# Checkbox untuk mengaktifkan rotasi 90 derajat
+rotate_90_degrees = st.checkbox("Rotasi 90 Derajat")
+
+# Checkbox untuk mengaktifkan rotasi 180 derajat
+rotate_180_degrees = st.checkbox("Rotasi 180 Derajat")
+
+# Checkbox untuk mengaktifkan rotasi sesuai sudut yang ditentukan
+rotate_45_degrees = st.checkbox("Rotasi Sesuai Sudut (45 derajat)")
+
+# Kolom untuk tampilan gambar asli, gambar yang telah ditingkatkan, gambar grayscale, inverted image, dan hasil rotasi
 col1, col2 = st.columns(2)
 plot1, plot2 = st.columns(2)
 
 col3, col4 = st.columns(2)
 plot3, plot4 = st.columns(2)
 
+col5, col6, col7 = st.columns(3)
+
 # Tombol untuk memproses gambar
 if uploaded_image is not None:
     try:
+        ##### Image Enhancement #####
         # Tampilkan gambar asli
         col1.image(uploaded_image, caption='Gambar Asli', use_column_width=True)
 
@@ -109,9 +193,8 @@ if uploaded_image is not None:
 
         # Tampilkan histogram intensitas keseluruhan gambar yang telah ditingkatkan
         plot2.pyplot(plot_histogram(enhanced_image, 'Histogram Intensitas Keseluruhan - Gambar Ditingkatkan'))
-
-        # Mengubah gambar ke skala abu-abu (grayscale)
-        grayscale = convert_to_grayscale(image)
+        
+        ##### Image Inverted #####
         
         # Tampilkan gambar asli
         col3.image(uploaded_image, caption='Gambar Asli', use_column_width=True)
@@ -131,16 +214,28 @@ if uploaded_image is not None:
         # Tampilkan histogram intensitas keseluruhan inverted image
         plot4.pyplot(plot_histogram(inverted, 'Histogram Intensitas Keseluruhan - Inverted Image'))
         
-        # Fungsi untuk menampilkan hasil rotasi
-        def show_rotated_images(image, angles):
-            col4, col5, col6 = st.columns(3)
-            for angle in angles:
-                rotated = rotate_image(image, angle)
-                col4.image(rotated, caption=f'Rotasi {angle} derajat', use_column_width=True)
-
-        # Tampilkan hasil rotasi dengan beberapa sudut
-        rotation_angles = [0, 45, 90, 135, 180, 225, 270, 315]
-        show_rotated_images(image, rotation_angles)
+        ##### Image Rotation #####
+        if rotate_90_degrees:
+            # Rotasi 90 derajat searah jarum jam
+            rotated_90_image = rotate_image_90_clockwise(uploaded_image)
+            
+            # Tampilkan gambar yang telah ditingkatkan intensitasnya dan dirotasi
+            col5.image(rotated_90_image, caption='Gambar dengan Rotasi 90 Derajat', use_column_width=True)
+            
+        if rotate_180_degrees:
+            # Rotasi 180 derajat searah jarum jam
+            rotated_180_image = rotate_image_180_clockwise(uploaded_image)
+            
+            # Tampilkan gambar yang telah ditingkatkan intensitasnya dan dirotasi
+            col6.image(rotated_180_image, caption='Gambar dengan Rotasi 180 Derajat', use_column_width=True)
+            
+        if rotate_45_degrees:
+            # Rotasi sesuai sudut yang ditentukan (45 derajat)
+            rotated_45_image = rotate_image_custom(uploaded_image, 45)
+            
+            # Tampilkan gambar yang telah dirotasi sesuai sudut yang ditentukan
+            col7.image(rotated_45_image, caption='Gambar dengan Rotasi Sesuai Sudut (45 derajat)', use_column_width=True)
 
     except Exception as e:
         st.error(f'Error: {str(e)}')
+
